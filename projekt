@@ -1,0 +1,117 @@
+#include <iostream>
+#include <string>
+
+using namespace std;
+
+int main()
+{
+    string nazwisko[10];
+    string imie[10];
+    string szukane;
+    bool obecnosc[10] = {false};
+    int nr_indeksu[10];
+    int liczba_osob = 0;
+    int wybor;
+
+    do {
+        cout << "\nMENU:\n";
+        cout << "1. Dodaj osobe\n";
+        cout << "2. Ustaw obecnosc\n";
+        cout << "3. Drukuj liste\n";
+        cout << "4. Edycja danych\n";
+        cout << "5. Usuwanie\n";
+        cout << "0. Wyjscie\n";
+        cout << "Wybor: ";
+        cin >> wybor;
+
+        switch (wybor)
+        {
+        case 1:
+            cout << "Podaj nazwisko: ";
+            cin >> nazwisko[liczba_osob];
+            cout << "Podaj imie: ";
+            cin >> imie[liczba_osob];
+            cout << "Podaj numer indeksu: ";
+            cin >> nr_indeksu[liczba_osob];
+            obecnosc[liczba_osob] = false;
+            liczba_osob++;
+            break;
+
+        case 2: {
+            cout << "Podaj nazwisko: ";
+            cin >> szukane;
+            bool znaleziono = false;
+
+            for (int i = 0; i < liczba_osob; i++) {
+                if (nazwisko[i] == szukane) {
+                    cout << "Obecny? (1/0): ";
+                    cin >> obecnosc[i];
+                    znaleziono = true;
+                    break;
+                }
+            }
+
+            if (!znaleziono) {
+                cout << "Nie znaleziono osoby\n";
+            }
+            break;
+        }
+
+        case 3:
+            for (int i = 0; i < liczba_osob; i++) {
+                cout << imie[i] << " "
+                     << nazwisko[i] << " "
+                     << nr_indeksu[i] << " ; "
+                     << (obecnosc[i] ? "obecny" : "nieobecny") << endl;
+            }
+            break;
+
+        case 4: {
+            cout << "Podaj nazwisko: ";
+            cin >> szukane;
+            bool znaleziono = false;
+
+            for (int i = 0; i < liczba_osob; i++) {
+                if (nazwisko[i] == szukane) {
+                    cout << "Nowe nazwisko: ";
+                    cin >> nazwisko[i];
+                    cout << "Nowe imie: ";
+                    cin >> imie[i];
+                    cout << "Nowy indeks: ";
+                    cin >> nr_indeksu[i];
+                    znaleziono = true;
+                    break;
+                }
+            }
+
+            if (!znaleziono) {
+                cout << "Nie znaleziono osoby\n";
+            }
+            break;
+        }
+
+        case 5: {
+            cout << "Podaj nazwisko: ";
+            cin >> szukane;
+
+            for (int i = 0; i < liczba_osob; i++) {
+                if (nazwisko[i] == szukane) {
+                    for (int j = i; j < liczba_osob - 1; j++) {
+                        nazwisko[j] = nazwisko[j + 1];
+                        imie[j] = imie[j + 1];
+                        nr_indeksu[j] = nr_indeksu[j + 1];
+                        obecnosc[j] = obecnosc[j + 1];
+                    }
+                    liczba_osob--;
+                    cout << "Osoba usunieta\n";
+                    break;
+                }
+            }
+            break;
+        }
+        }
+
+    } while (wybor != 0);
+
+    return 0;
+}
