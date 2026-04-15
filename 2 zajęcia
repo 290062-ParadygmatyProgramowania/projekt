@@ -1,0 +1,188 @@
+#include <iostream>
+#include <string>
+
+using namespace std;
+
+class Osoba {
+private:
+    string imie;
+    string nazwisko;
+    int indeks;
+    string data_urodzenia;
+    float wzrost;
+
+public:
+    void ustaw() {
+        cout << "Imie: ";
+        cin >> imie;
+        cout << "Nazwisko: ";
+        cin >> nazwisko;
+        cout << "Indeks: ";
+        cin >> indeks;
+        cout << "Data urodzenia (DD-MM-YYYY): ";
+        cin >> data_urodzenia;
+        cout << "Wzrost: ";
+        cin >> wzrost;
+    }
+
+    void wyswietl() const {
+        cout << imie << " " << nazwisko << " | Indeks: " << indeks
+             << " | Data urodzenia: " << data_urodzenia << " | Wzrost: " << wzrost;
+    }
+
+    string getNazwisko() const {
+        return nazwisko;
+    }
+
+    int getIndeks() const {
+        return indeks;
+    }
+
+    void edytuj() {
+        cout << "Nowe imie: ";
+        cin >> imie;
+        cout << "Nowe nazwisko: ";
+        cin >> nazwisko;
+        cout << "Nowy indeks: ";
+        cin >> indeks;
+        cout << "Nowa data urodzenia (DD-MM-YYYY): ";
+        cin >> data_urodzenia;
+        cout << "Nowy wzrost: ";
+        cin >> wzrost;
+    }
+};
+
+int main() {
+    Osoba lista[10];
+    bool* obecnosclista1 = new bool[10];
+    bool* obecnosclista2 = new bool[10];
+    
+    // Inicjalizacja wskaźników
+    for (int i = 0; i < 10; i++) {
+        obecnosclista1[i] = false;
+        obecnosclista2[i] = false;
+    }
+    
+    int liczba_osob = 0;
+    int wybor;
+    string szukane;
+
+    do {
+        cout << "\n1. Dodaj osobę\n";
+        cout << "2. Obecność lista 1\n";
+        cout << "3. Obecność lista 2\n";
+        cout << "4. Wyswietl wszystkich\n";
+        cout << "5. Edytuj dane\n";
+        cout << "6. Usuń osobę\n";
+        cout << "0. Wyjście\n";
+        cout << "Wybór: ";
+        cin >> wybor;
+
+        switch (wybor) {
+        case 1:
+            if (liczba_osob < 10) {
+                lista[liczba_osob].ustaw();
+                liczba_osob++;
+            } else {
+                cout << "Lista pełna!\n";
+            }
+            break;
+
+        case 2:
+            cout << "Nazwisko osoby: ";
+            cin >> szukane;
+            bool znaleziono1 = false;
+            for (int i = 0; i < liczba_osob; i++) {
+                if (lista[i].getNazwisko() == szukane) {
+                    cout << "Obecny (1/0): ";
+                    cin >> obecnosclista1[i];
+                    znaleziono1 = true;
+                    break;
+                }
+            }
+            if (!znaleziono1) {
+                cout << "Nie znaleziono osoby!\n";
+            }
+            break;
+
+        case 3:
+            cout << "Nazwisko osoby: ";
+            cin >> szukane;
+            bool znaleziono2 = false;
+            for (int i = 0; i < liczba_osob; i++) {
+                if (lista[i].getNazwisko() == szukane) {
+                    cout << "Obecny (1/0): ";
+                    cin >> obecnosclista2[i];
+                    znaleziono2 = true;
+                    break;
+                }
+            }
+            if (!znaleziono2) {
+                cout << "Nie znaleziono osoby!\n";
+            }
+            break;
+
+        case 4:
+            if (liczba_osob == 0) {
+                cout << "Brak osób w systemie!\n";
+            } else {
+                for (int i = 0; i < liczba_osob; i++) {
+                    lista[i].wyswietl();
+                    cout << " | Lista 1: " << (obecnosclista1[i] ? "Obecny" : "Nieobecny")
+                         << " | Lista 2: " << (obecnosclista2[i] ? "Obecny" : "Nieobecny") << endl;
+                }
+            }
+            break;
+
+        case 5:
+            cout << "Podaj nazwisko osoby, którą chcesz edytować: ";
+            cin >> szukane;
+            bool znalezionoEdytowanie = false;
+            for (int i = 0; i < liczba_osob; i++) {
+                if (lista[i].getNazwisko() == szukane) {
+                    lista[i].edytuj();
+                    znalezionoEdytowanie = true;
+                    break;
+                }
+            }
+            if (!znalezionoEdytowanie) {
+                cout << "Nie znaleziono osoby!\n";
+            }
+            break;
+
+        case 6:
+            cout << "Podaj nazwisko osoby do usunięcia: ";
+            cin >> szukane;
+            bool znalezionoUsuwanie = false;
+            for (int i = 0; i < liczba_osob; i++) {
+                if (lista[i].getNazwisko() == szukane) {
+                    for (int j = i; j < liczba_osob - 1; j++) {
+                        lista[j] = lista[j + 1];
+                        obecnosclista1[j] = obecnosclista1[j + 1];
+                        obecnosclista2[j] = obecnosclista2[j + 1];
+                    }
+                    liczba_osob--;
+                    cout << "Osoba została usunięta.\n";
+                    znalezionoUsuwanie = true;
+                    break;
+                }
+            }
+            if (!znalezionoUsuwanie) {
+                cout << "Nie znaleziono osoby!\n";
+            }
+            break;
+
+        default:
+            if (wybor != 0) {
+                cout << "Nieprawidłowy wybór. Spróbuj ponownie.\n";
+            }
+            break;
+        }
+
+    } while (wybor != 0);
+
+    delete[] obecnosclista1;
+    delete[] obecnosclista2;
+
+    return 0;
+}
