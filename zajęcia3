@@ -1,0 +1,196 @@
+#include <iostream>
+#include <string>
+#include <vector>
+
+using namespace std;
+
+class ListaObecnosci {
+private:
+    string nazwa;
+    bool obecny;
+
+public:
+    ListaObecnosci(string n) : nazwa(n), obecny(false) {}
+
+    void ustawObecnosc(bool status) {
+        obecny = status;
+    }
+
+    string getNazwa() const {
+        return nazwa;
+    }
+
+    bool getObecnosc() const {
+        return obecny;
+    }
+};
+
+class Osoba {
+private:
+    string imie;
+    string nazwisko;
+    int indeks;
+    string data_urodzenia;
+    float wzrost;
+
+    vector<ListaObecnosci> listy; // KOMPOZYCJA
+
+public:
+    void ustaw() {
+        cout << "Imie: ";
+        cin >> imie;
+        cout << "Nazwisko: ";
+        cin >> nazwisko;
+        cout << "Indeks: ";
+        cin >> indeks;
+        cout << "Data urodzenia: ";
+        cin >> data_urodzenia;
+        cout << "Wzrost: ";
+        cin >> wzrost;
+    }
+
+    void dodajListe(string nazwa) {
+        listy.push_back(ListaObecnosci(nazwa));
+    }
+
+    void ustawObecnosc(string nazwa) {
+        for (auto &l : listy) {
+            if (l.getNazwa() == nazwa) {
+                bool status;
+                cout << "Obecny (1/0): ";
+                cin >> status;
+                l.ustawObecnosc(status);
+                return;
+            }
+        }
+        cout << "Nie ma takiej listy!\n";
+    }
+
+    void wyswietl() const {
+        cout << imie << " " << nazwisko << " | Indeks: " << indeks << endl;
+        for (const auto &l : listy) {
+            cout << "  " << l.getNazwa() << ": "
+                 << (l.getObecnosc() ? "Obecny" : "Nieobecny") << endl;
+        }
+    }
+
+    string getNazwisko() const {
+        return nazwisko;
+    }
+
+    void edytuj() {
+        cout << "Nowe imie: ";
+        cin >> imie;
+        cout << "Nowe nazwisko: ";
+        cin >> nazwisko;
+        cout << "Nowy indeks: ";
+        cin >> indeks;
+        cout << "Nowa data urodzenia: ";
+        cin >> data_urodzenia;
+        cout << "Nowy wzrost: ";
+        cin >> wzrost;
+    }
+};
+
+class Interfejs {
+private:
+    vector<Osoba*> osoby;
+
+public:
+    ~Interfejs() {
+        for (auto o : osoby) {
+            delete o; // sprzątanie pamięci
+        }
+    }
+
+    void uruchom() {
+        int wybor;
+        string nazwisko, nazwaListy;
+
+        do {
+            cout << "\n1. Dodaj osobę\n";
+            cout << "2. Dodaj listę obecności\n";
+            cout << "3. Ustaw obecność\n";
+            cout << "4. Wyswietl wszystkich\n";
+            cout << "5. Edytuj dane\n";
+            cout << "6. Usuń osobę\n";
+            cout << "0. Wyjście\n";
+            cout << "Wybór: ";
+            cin >> wybor;
+
+            switch (wybor) {
+
+            case 1: {
+                Osoba* o = new Osoba;
+                o->ustaw();
+                osoby.push_back(o);
+                break;
+            }
+
+            case 2: {
+                cout << "Podaj nazwę listy: ";
+                cin >> nazwaListy;
+                for (auto o : osoby) {
+                    o->dodajListe(nazwaListy);
+                }
+                break;
+            }
+
+            case 3: {
+                cout << "Nazwisko: ";
+                cin >> nazwisko;
+                cout << "Lista: ";
+                cin >> nazwaListy;
+
+                for (auto o : osoby) {
+                    if (o->getNazwisko() == nazwisko) {
+                        o->ustawObecnosc(nazwaListy);
+                    }
+                }
+                break;
+            }
+
+            case 4: {
+                for (auto o : osoby) {
+                    o->wyswietl();
+                }
+                break;
+            }
+
+            case 5: {
+                cout << "Nazwisko: ";
+                cin >> nazwisko;
+                for (auto o : osoby) {
+                    if (o->getNazwisko() == nazwisko) {
+                        o->edytuj();
+                    }
+                }
+                break;
+            }
+
+            case 6: {
+                cout << "Nazwisko: ";
+                cin >> nazwisko;
+
+                for (int i = 0; i < osoby.size(); i++) {
+                    if (osoby[i]->getNazwisko() == nazwisko) {
+                        delete osoby[i];
+                        osoby.erase(osoby.begin() + i);
+                        cout << "Usunięto.\n";
+                        break;
+                    }
+                }
+                break;
+            }
+
+            }
+
+        } while (wybor != 0);
+    }
+};
+
+int main() {
+    Interfejs app;
+    app.uruchom();
+    return 0;
+}
