@@ -1,0 +1,569 @@
+#include <iostream>
+#include <string>
+#include <vector>
+#include <fstream>
+#include <map>
+
+using namespace std;
+
+class ListaObecnosci {
+private:
+    string* nazwa;
+    bool* obecny;
+
+public:
+    ListaObecnosci(string n) {
+        nazwa = new string(n);
+        obecny = new bool(false);
+    }
+
+    ListaObecnosci(const ListaObecnosci& other) {
+        nazwa = new string(*other.nazwa);
+        obecny = new bool(*other.obecny);
+    }
+
+    ListaObecnosci& operator=(const ListaObecnosci& other) {
+        if (this != &other) {
+            *nazwa = *other.nazwa;
+            *obecny = *other.obecny;
+        }
+        return *this;
+    }
+
+    ~ListaObecnosci() {
+        delete nazwa;
+        delete obecny;
+    }
+
+    void ustawObecnosc(bool status) { *obecny = status; }
+    string getNazwa() const { return *nazwa; }
+    bool getObecnosc() const { return *obecny; }
+};
+
+class Przedstawialny {
+public:
+    virtual string przedstawSie() const = 0;
+    virtual ~Przedstawialny() = 0;
+};
+Przedstawialny::~Przedstawialny() {}
+
+class IEksportowalny {
+public:
+    virtual map<string, string> eksportuj() const = 0;
+    // NOWE: eksport samej listy obecnosci jako osobna mapa
+    virtual vector<map<string, string>> eksportujListeObecnosci() const = 0;
+    virtual ~IEksportowalny() {}
+};
+
+class IEksporter {
+public:
+    virtual void wykonajEksport(const IEksportowalny* obj, string nazwaPliku) const = 0;
+    virtual ~IEksporter() {}
+};
+
+// -------------------------------------------------------
+// Eksporter TXT — dane podstawowe osoby
+// -------------------------------------------------------
+class EksporterTxt : public IEksporter {
+public:
+    void wykonajEksport(const IEksportowalny* obj, string nazwaPliku) const override {
+        ofstream plik(nazwaPliku, ios::app);
+        if (!plik) {
+            cout << "Blad otwarcia pliku do eksportu TXT!\n";
+            return;
+        }
+
+        map<string, string> dane = obj->eksportuj();
+        map<string, string>::const_iterator it;
+
+        plik << "[" << dane.at("Typ") << "]\n";
+        for (it = dane.begin(); it != dane.end(); ++it) {
+            if (it->first != "Typ") {
+                plik << it->first << ": " << it->second << "\n";
+            }
+        }
+        plik << "\n";
+        plik.close();
+    }
+};
+
+class EksporterCsv : public IEksporter {
+public:
+    void wykonajEksport(const IEksportowalny* obj, string nazwaPliku) const override {
+        ofstream plik(nazwaPliku, ios::app);
+        if (!plik) {
+            cout << "Blad otwarcia pliku do eksportu CSV!\n";
+            return;
+        }
+
+        map<string, string> dane = obj->eksportuj();
+        map<string, string>::const_iterator it;
+
+        bool pierwszy = true;
+        for (it = dane.begin(); it != dane.end(); ++it) {
+            if (!pierwszy) plik << ",";
+            plik << it->second;
+            pierwszy = false;
+        }
+        plik << "\n";
+        plik.close();
+    }
+};
+
+class EksporterListaObecnosciTxt : public IEksporter {
+public:
+    void wykonajEksport(const IEksportowalny* obj, string nazwaPliku) const override {
+        ofstream plik(nazwaPliku, ios::app);
+        if (!plik) {
+            cout << "Blad otwarcia pliku do eksportu listy obecnosci TXT!\n";
+            return;
+        }
+
+        map<string, string> dane = obj->eksportuj();
+        plik << "[Lista obecnosci: " << dane.at("Imie") << " " << dane.at("Nazwisko") << "]\n";
+
+        vector<map<string, string>> listy = obj->eksportujListeObecnosci();
+        if (listy.empty()) {
+            plik << "  Brak list obecnosci.\n";
+        } else {
+            // Zgodnie z tablica: for(it = dane.begin(); it != dane.end(); ++it)
+            //                        plik << it->first << ": " << it->second
+            for (const auto& wpis : listy) {
+                map<string, string>::const_iterator it;
+                for (it = wpis.begin(); it != wpis.end(); ++it) {
+                    plik << it->first << ": " << it->second << "\n";
+                }
+                plik << "\n";
+            }
+        }
+        plik.close();
+    }
+};
+
+// -------------------------------------------------------
+// NOWY: Eksporter CSV — tylko lista obecnosci
+// -------------------------------------------------------
+class EksporterListaObecnosciCsv : public IEksporter {
+public:
+    void wykonajEksport(const IEksportowalny* obj, string nazwaPliku) const override {
+        ofstream plik(nazwaPliku, ios::app);
+        if (!plik) {
+            cout << "Blad otwarcia pliku do eksportu listy obecnosci CSV!\n";
+            return;
+        }
+
+        map<string, string> dane = obj->eksportuj();
+        string pelneNazwisko = dane.at("Imie") + " " + dane.at("Nazwisko");
+
+        vector<map<string, string>> listy = obj->eksportujListeObecnosci();
+        if (listy.empty()) {
+            plik << pelneNazwisko << ",brak list\n";
+        } else {
+            for (const auto& wpis : listy) {
+                plik << pelneNazwisko;
+                map<string, string>::const_iterator it;
+                for (it = wpis.begin(); it != wpis.end(); ++it) {
+                    plik << "," << it->second;
+                }
+                plik << "\n";
+            }
+        }
+        plik.close();
+    }
+};
+
+class Drukarka {
+public:
+    static void drukuj(const Przedstawialny& obj) {
+        cout << obj.przedstawSie() << endl;
+    }
+};
+
+class Osoba : public Przedstawialny, public IEksportowalny {
+protected:
+    string imie;
+    string nazwisko;
+    string data_urodzenia;
+    float wzrost;
+    vector<ListaObecnosci*> listy;
+
+public:
+    Osoba() : wzrost(0.0f) {}
+
+    virtual ~Osoba() {
+        for (auto l : listy) delete l;
+    }
+
+    virtual void ustaw() {
+        cout << "Imie: ";           cin >> imie;
+        cout << "Nazwisko: ";       cin >> nazwisko;
+        cout << "Data urodzenia: "; cin >> data_urodzenia;
+        cout << "Wzrost: ";         cin >> wzrost;
+    }
+
+    virtual void edytuj() {
+        cout << "Nowe imie: ";           cin >> imie;
+        cout << "Nowe nazwisko: ";       cin >> nazwisko;
+        cout << "Nowa data urodzenia: "; cin >> data_urodzenia;
+        cout << "Nowy wzrost: ";         cin >> wzrost;
+    }
+
+    void wyswietl() const {
+        Drukarka::drukuj(*this);
+    }
+
+    void dodajListe(const string& nazwa) {
+        listy.push_back(new ListaObecnosci(nazwa));
+    }
+
+    void ustawObecnosc(const string& nazwa) {
+        for (auto& l : listy) {
+            if (l->getNazwa() == nazwa) {
+                bool status;
+                cout << "Obecny (1/0): ";
+                cin >> status;
+                l->ustawObecnosc(status);
+                return;
+            }
+        }
+        cout << "Nie ma takiej listy!\n";
+    }
+
+    string getNazwisko() const { return nazwisko; }
+    virtual string getTyp() const = 0;
+
+    // NOWE: implementacja eksportu listy obecnosci
+    vector<map<string, string>> eksportujListeObecnosci() const override {
+        vector<map<string, string>> wynik;
+        for (const auto& l : listy) {
+            map<string, string> wpis;
+            wpis["Nazwa"] = l->getNazwa();
+            wpis["Status"] = l->getObecnosc() ? "Obecny" : "Nieobecny";
+            wynik.push_back(wpis);
+        }
+        return wynik;
+    }
+
+protected:
+    string formatujListy() const {
+        string wynik;
+        if (listy.empty()) {
+            wynik += "  Brak list obecnosci.\n";
+        } else {
+            for (const auto& l : listy) {
+                wynik += "  Lista [" + l->getNazwa() + "]: ";
+                wynik += (l->getObecnosc() ? "Obecny" : "Nieobecny");
+                wynik += "\n";
+            }
+        }
+        return wynik;
+    }
+};
+
+class Student : public Osoba {
+private:
+    int indeks;
+
+public:
+    Student() : indeks(0) {}
+
+    void ustaw() override {
+        Osoba::ustaw();
+        cout << "Indeks: ";
+        cin >> indeks;
+    }
+
+    void edytuj() override {
+        Osoba::edytuj();
+        cout << "Nowy indeks: ";
+        cin >> indeks;
+    }
+
+    string przedstawSie() const override {
+        string s;
+        s += "\n========== STUDENT ==========\n";
+        s += "Indeks: " + to_string(indeks) + "\n";
+        s += "Imie: " + imie + " | Nazwisko: " + nazwisko + "\n";
+        s += "Data urodzenia: " + data_urodzenia;
+        s += " | Wzrost: " + to_string(wzrost) + " cm\n";
+        s += formatujListy();
+        return s;
+    }
+
+    map<string, string> eksportuj() const override {
+        string listyStr;
+        for (const auto& l : listy) {
+            listyStr += l->getNazwa() + "=" + (l->getObecnosc() ? "Obecny" : "Nieobecny") + " ";
+        }
+        string przygotowaneListy = listyStr.empty() ? "brak" : listyStr.substr(0, listyStr.length() - 1);
+
+        return {
+            {"Typ", "Student"},
+            {"Imie", imie},
+            {"Nazwisko", nazwisko},
+            {"DataUrodzenia", data_urodzenia},
+            {"Wzrost", to_string(wzrost)},
+            {"Indeks", to_string(indeks)},
+            {"Listy", przygotowaneListy}
+        };
+    }
+
+    string getTyp() const override { return "Student"; }
+};
+
+class Pracownik : public Osoba {
+private:
+    int id;
+
+public:
+    Pracownik() : id(0) {}
+
+    void ustaw() override {
+        Osoba::ustaw();
+        cout << "ID pracownika: ";
+        cin >> id;
+    }
+
+    void edytuj() override {
+        Osoba::edytuj();
+        cout << "Nowe ID pracownika: ";
+        cin >> id;
+    }
+
+    string przedstawSie() const override {
+        string s;
+        s += "\n========== PRACOWNIK ==========\n";
+        s += "ID: " + to_string(id) + "\n";
+        s += "Imie: " + imie + " | Nazwisko: " + nazwisko + "\n";
+        s += "Data urodzenia: " + data_urodzenia;
+        s += " | Wzrost: " + to_string(wzrost) + " cm\n";
+        s += formatujListy();
+        return s;
+    }
+
+    map<string, string> eksportuj() const override {
+        string listyStr;
+        for (const auto& l : listy) {
+            listyStr += l->getNazwa() + "=" + (l->getObecnosc() ? "Obecny" : "Nieobecny") + " ";
+        }
+        string przygotowaneListy = listyStr.empty() ? "brak" : listyStr.substr(0, listyStr.length() - 1);
+
+        return {
+            {"Typ", "Pracownik"},
+            {"Imie", imie},
+            {"Nazwisko", nazwisko},
+            {"DataUrodzenia", data_urodzenia},
+            {"Wzrost", to_string(wzrost)},
+            {"ID", to_string(id)},
+            {"Listy", przygotowaneListy}
+        };
+    }
+
+    string getTyp() const override { return "Pracownik"; }
+};
+
+class Interfejs {
+private:
+    vector<Osoba*> osoby;
+
+public:
+    ~Interfejs() {
+        for (auto o : osoby) delete o;
+    }
+
+    void uruchom() {
+        int wybor;
+        string nazwisko, nazwaListy;
+
+        do {
+            cout << "\n1. Dodaj studenta\n";
+            cout << "2. Dodaj pracownika\n";
+            cout << "3. Dodaj liste obecnosci (dla wszystkich)\n";
+            cout << "4. Ustaw obecnosc\n";
+            cout << "5. Wyswietl wszystkich\n";
+            cout << "6. Edytuj dane\n";
+            cout << "7. Usun osobe\n";
+            cout << "8. Zapisz dane do pliku\n";
+            cout << "9. Zapisz liste obecnosci do pliku\n"; // NOWE
+            cout << "0. Wyjscie\n";
+            cout << "Wybor: ";
+            cin >> wybor;
+
+            switch (wybor) {
+            case 1: {
+                Student* s = new Student();
+                s->ustaw();
+                osoby.push_back(s);
+                cout << "Dodano studenta.\n";
+                break;
+            }
+            case 2: {
+                Pracownik* p = new Pracownik();
+                p->ustaw();
+                osoby.push_back(p);
+                cout << "Dodano pracownika.\n";
+                break;
+            }
+            case 3: {
+                cout << "Podaj nazwe listy: ";
+                cin >> nazwaListy;
+                for (auto o : osoby) o->dodajListe(nazwaListy);
+                cout << "Dodano liste \"" << nazwaListy << "\" dla wszystkich.\n";
+                break;
+            }
+            case 4: {
+                cout << "Nazwisko: "; cin >> nazwisko;
+                cout << "Lista: ";    cin >> nazwaListy;
+                for (auto o : osoby)
+                    if (o->getNazwisko() == nazwisko) o->ustawObecnosc(nazwaListy);
+                break;
+            }
+            case 5: {
+                if (osoby.empty()) {
+                    cout << "Brak osob na liscie.\n";
+                } else {
+                    for (auto o : osoby) o->wyswietl();
+                }
+                break;
+            }
+            case 6: {
+                cout << "Nazwisko: "; cin >> nazwisko;
+                for (auto o : osoby)
+                    if (o->getNazwisko() == nazwisko) {
+                        o->edytuj();
+                        cout << "Zaktualizowano.\n";
+                    }
+                break;
+            }
+            case 7: {
+                cout << "Nazwisko: "; cin >> nazwisko;
+                for (int i = 0; i < (int)osoby.size(); i++) {
+                    if (osoby[i]->getNazwisko() == nazwisko) {
+                        delete osoby[i];
+                        osoby.erase(osoby.begin() + i);
+                        cout << "Usunieto.\n";
+                        break;
+                    }
+                }
+                break;
+            }
+
+            case 8: {
+                if (osoby.empty()) {
+                    cout << "Brak osob do zapisania.\n";
+                    break;
+                }
+
+                cout << "Wybierz format pliku:\n1. Tekstowy (TXT)\n2. Arkusz (CSV)\nWybor: ";
+                int formatWybor; cin >> formatWybor;
+
+                IEksporter* eksporter = nullptr;
+                if (formatWybor == 1) {
+                    eksporter = new EksporterTxt();
+                } else if (formatWybor == 2) {
+                    eksporter = new EksporterCsv();
+                } else {
+                    cout << "Nieprawidlowy format!\n";
+                    break;
+                }
+
+                cout << "Zapisac (1) cala liste czy (2) jedna osobe? ";
+                int tryb; cin >> tryb;
+
+                cout << "Nazwa pliku: ";
+                string plik; cin >> plik;
+
+                ofstream czyscPlik(plik, ios::trunc);
+                czyscPlik.close();
+
+                if (tryb == 1) {
+                    for (auto o : osoby) eksporter->wykonajEksport(o, plik);
+                    cout << "Wyeksportowano cala liste do pliku: " << plik << "\n";
+                } else if (tryb == 2) {
+                    cout << "Nazwisko: "; cin >> nazwisko;
+                    bool znaleziono = false;
+                    for (auto o : osoby) {
+                        if (o->getNazwisko() == nazwisko) {
+                            eksporter->wykonajEksport(o, plik);
+                            znaleziono = true;
+                        }
+                    }
+                    if (znaleziono)
+                        cout << "Wyeksportowano osobe do pliku: " << plik << "\n";
+                    else
+                        cout << "Nie znaleziono osoby o nazwisku: " << nazwisko << "\n";
+                } else {
+                    cout << "Nieprawidlowy tryb.\n";
+                }
+
+                delete eksporter;
+                break;
+            }
+
+            case 9: {
+                if (osoby.empty()) {
+                    cout << "Brak osob do zapisania.\n";
+                    break;
+                }
+
+                cout << "Wybierz format pliku:\n1. Tekstowy (TXT)\n2. Arkusz (CSV)\nWybor: ";
+                int formatWybor; cin >> formatWybor;
+
+                IEksporter* eksporter = nullptr;
+                if (formatWybor == 1) {
+                    eksporter = new EksporterListaObecnosciTxt();
+                } else if (formatWybor == 2) {
+                    eksporter = new EksporterListaObecnosciCsv();
+                } else {
+                    cout << "Nieprawidlowy format!\n";
+                    break;
+                }
+
+                cout << "Zapisac (1) cala liste czy (2) jedna osobe? ";
+                int tryb; cin >> tryb;
+
+                cout << "Nazwa pliku: ";
+                string plik; cin >> plik;
+
+                ofstream czyscPlik(plik, ios::trunc);
+                czyscPlik.close();
+
+                if (tryb == 1) {
+                    for (auto o : osoby) eksporter->wykonajEksport(o, plik);
+                    cout << "Wyeksportowano liste obecnosci do pliku: " << plik << "\n";
+                } else if (tryb == 2) {
+                    cout << "Nazwisko: "; cin >> nazwisko;
+                    bool znaleziono = false;
+                    for (auto o : osoby) {
+                        if (o->getNazwisko() == nazwisko) {
+                            eksporter->wykonajEksport(o, plik);
+                            znaleziono = true;
+                        }
+                    }
+                    if (znaleziono)
+                        cout << "Wyeksportowano liste obecnosci osoby do pliku: " << plik << "\n";
+                    else
+                        cout << "Nie znaleziono osoby o nazwisku: " << nazwisko << "\n";
+                } else {
+                    cout << "Nieprawidlowy tryb.\n";
+                }
+
+                delete eksporter;
+                break;
+            }
+
+            case 0:
+                cout << "Do widzenia!\n";
+                break;
+            default:
+                cout << "Nieprawidlowy wybor.\n";
+            }
+        } while (wybor != 0);
+    }
+};
+
+int main() {
+    Interfejs app;
+    app.uruchom();
+    return 0;
+}
